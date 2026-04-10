@@ -14,3 +14,5 @@ and this project adheres to
 - Pull request template with merge checklist (#4)
 - Pre-commit hooks for ruff, mypy, and file hygiene (#5)
 - CONTRIBUTING.md, CHANGELOG.md, and MIT LICENSE (#7)
+- ADR-001: Streaming architecture — SSE over WebSocket to browser (#9)
+- ADR-002: HTMX over single-page application framework (#9)
