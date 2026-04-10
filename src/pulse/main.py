@@ -9,6 +9,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from pulse.config import get_settings
+from pulse.correlation import CorrelationEngine
 from pulse.detector import StressDetector
 from pulse.events import EventStore
 from pulse.store import PulseStore
@@ -21,6 +22,7 @@ settings = get_settings()
 store = PulseStore()
 event_store = EventStore()
 detector = StressDetector(event_store)
+correlation_engine = CorrelationEngine(store)
 
 
 @asynccontextmanager
