@@ -16,3 +16,4 @@ and this project adheres to
 - CONTRIBUTING.md, CHANGELOG.md, and MIT LICENSE (#7)
 - ADR-001: Streaming architecture — SSE over WebSocket to browser (#9)
 - ADR-002: HTMX over single-page application framework (#9)
+- Full README with Mermaid architecture diagrams and roadmap (#8)
