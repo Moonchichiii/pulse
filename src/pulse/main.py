@@ -9,6 +9,8 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from pulse.config import get_settings
+from pulse.detector import StressDetector
+from pulse.events import EventStore
 from pulse.store import PulseStore
 from pulse.worker import start_worker, stop_worker
 
@@ -17,12 +19,14 @@ if TYPE_CHECKING:
 
 settings = get_settings()
 store = PulseStore()
+event_store = EventStore()
+detector = StressDetector(event_store)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Start worker on startup, stop on shutdown."""
-    start_worker(settings, store)
+    start_worker(settings, store, detector)
     yield
     stop_worker()
 
