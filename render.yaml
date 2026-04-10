@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: pulse
+    runtime: docker
+    repo: https://github.com/Moonchichiii/pulse
+    branch: main
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: EODHD_API_KEY
+        sync: false

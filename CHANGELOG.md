@@ -19,3 +19,9 @@ and this project adheres to
 - Full README with Mermaid architecture diagrams and roadmap (#8)
 - Project directory structure with package init files (#1)
 - .dockerignore to minimize Docker build context (#6)
+- render.yaml for Render deployment (#30)
+
+### Changed
+
+- Dockerfile CMD respects PORT env var for Render compatibility (#30)
+- Dockerfile copies static/ directory into image (#30)
