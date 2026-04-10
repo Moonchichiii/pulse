@@ -19,11 +19,12 @@ and this project adheres to
 - Full README with Mermaid architecture diagrams and roadmap (#8)
 - Project directory structure with package init files (#1)
 - .dockerignore to minimize Docker build context (#6)
-- render.yaml for Render deployment (#30)
-- FastAPI health endpoint at /health (#2)
-- Application config via pydantic-settings (#2)
-- Test fixtures with async httpx client (#3)
-- Health endpoint tests (status, payload, content type) (#3)
+- render.yaml and Dockerfile PORT env var support (#30)
+- FastAPI health endpoint with config and async test (#2, #3)
+- Tick domain model and AssetClass enum (#11)
+- EODHD WebSocket feed consumers with reconnect/backoff (#11)
+- Tick parsers for stock, forex, crypto feeds (#11)
+- Feed symbol config: SEK and EUR forex pairs (#11)
 
 ### Changed
 
