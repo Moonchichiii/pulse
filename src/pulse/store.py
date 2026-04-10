@@ -1,8 +1,4 @@
-"""PulseStore — in-memory rolling buffer with computed metrics.
-
-Thread-safe: the background worker calls ``update()`` while SSE
-endpoints call ``snapshot()``.  A threading.Lock guards all mutations.
-"""
+"""PulseStore — in-memory rolling buffer with computed metrics."""
 
 from __future__ import annotations
 
@@ -17,15 +13,11 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from pulse.models import Tick
 
-# ---------------------------------------------------------------------------
-# Constants
-# ---------------------------------------------------------------------------
-
-BUFFER_SECONDS = 3600  # 1 hour of ticks
-RETURN_WINDOWS = (60, 300, 900)  # 1m, 5m, 15m
-VOL_WINDOW = 900  # 15m
-TREND_WINDOW = 900  # 15m
-VOL_HISTORY_SIZE = 200  # rolling vol values for percentile
+BUFFER_SECONDS = 3600
+RETURN_WINDOWS = (60, 300, 900)
+VOL_WINDOW = 900
+TREND_WINDOW = 900
+VOL_HISTORY_SIZE = 200
 REGIME_PERCENTILE = 0.80
 
 
@@ -34,11 +26,6 @@ class Regime(StrEnum):
 
     NORMAL = "normal"
     HIGH_VOL = "high_vol"
-
-
-# ---------------------------------------------------------------------------
-# Per-symbol data
-# ---------------------------------------------------------------------------
 
 
 @dataclass
@@ -75,11 +62,7 @@ class _SymbolBuffer:
     vol_history: deque[float] = field(
         default_factory=lambda: deque(maxlen=VOL_HISTORY_SIZE)
     )
-
-
-# ---------------------------------------------------------------------------
-# Metric computation — pure functions
-# ---------------------------------------------------------------------------
+    last_regime: Regime = field(default=Regime.NORMAL)
 
 
 def _return_over_window(
@@ -87,7 +70,7 @@ def _return_over_window(
     now: float,
     window_secs: int,
 ) -> float | None:
-    """Log return from the oldest tick within *window_secs* to now."""
+    """Log return from the oldest tick within window to now."""
     if len(ticks) < 2:
         return None
     cutoff = now - window_secs
@@ -109,7 +92,7 @@ def _volatility(
     now: float,
     window_secs: int,
 ) -> float | None:
-    """Annualised volatility from tick-to-tick log returns in window."""
+    """Volatility from tick-to-tick log returns in window."""
     cutoff = now - window_secs
     prices: list[float] = [
         t.price for t in ticks if t.timestamp >= cutoff and t.price > 0
@@ -133,10 +116,7 @@ def _trend_slope(
     now: float,
     window_secs: int,
 ) -> float | None:
-    """Linear regression slope of log-price over time window.
-
-    Returns slope per second (positive = uptrend).
-    """
+    """Linear regression slope of log-price over time window."""
     cutoff = now - window_secs
     points: list[tuple[float, float]] = [
         (t.timestamp, math.log(t.price))
@@ -160,7 +140,7 @@ def _detect_regime(
     vol_history: deque[float],
     current_vol: float | None,
 ) -> Regime:
-    """Compare current volatility to the 80th percentile of history."""
+    """Compare current volatility to 80th percentile of history."""
     if current_vol is None or len(vol_history) < 20:
         return Regime.NORMAL
     sorted_hist = sorted(vol_history)
@@ -172,11 +152,6 @@ def _detect_regime(
     return Regime.NORMAL
 
 
-# ---------------------------------------------------------------------------
-# PulseStore
-# ---------------------------------------------------------------------------
-
-
 class PulseStore:
     """Thread-safe in-memory store for live tick data and metrics."""
 
@@ -185,10 +160,7 @@ class PulseStore:
         self._buffers: dict[str, _SymbolBuffer] = {}
 
     def update(self, tick: Tick) -> SymbolMetrics:
-        """Ingest a tick, prune stale data, recompute metrics.
-
-        Returns the freshly computed metrics for the symbol.
-        """
+        """Ingest a tick, prune stale data, recompute metrics."""
         now = tick.timestamp
         record = TickRecord(
             price=tick.price,
@@ -204,23 +176,21 @@ class PulseStore:
 
             buf.ticks.append(record)
 
-            # Prune ticks older than buffer window
             cutoff = now - BUFFER_SECONDS
             while buf.ticks and buf.ticks[0].timestamp < cutoff:
                 buf.ticks.popleft()
 
-            # Compute metrics
             ret_1m = _return_over_window(buf.ticks, now, RETURN_WINDOWS[0])
             ret_5m = _return_over_window(buf.ticks, now, RETURN_WINDOWS[1])
             ret_15m = _return_over_window(buf.ticks, now, RETURN_WINDOWS[2])
             vol = _volatility(buf.ticks, now, VOL_WINDOW)
             trend = _trend_slope(buf.ticks, now, TREND_WINDOW)
 
-            # Track vol history for regime detection
             if vol is not None:
                 buf.vol_history.append(vol)
 
             regime = _detect_regime(buf.vol_history, vol)
+            buf.last_regime = regime
 
             return SymbolMetrics(
                 symbol=tick.symbol,
@@ -267,6 +237,14 @@ class PulseStore:
                 )
 
         return results
+
+    def get_regime(self, symbol: str) -> Regime:
+        """Return the last computed regime for *symbol*."""
+        with self._lock:
+            buf = self._buffers.get(symbol)
+            if buf is None:
+                return Regime.NORMAL
+            return buf.last_regime
 
     @property
     def symbols(self) -> list[str]:

@@ -11,6 +11,7 @@ def _event(
     symbol: str = "AAPL",
     event_type: EventType = EventType.MOVE_1M,
     timestamp: float = _BASE_TS,
+    regime: str = "normal",
 ) -> StressEvent:
     return StressEvent.create(
         symbol=symbol,
@@ -20,6 +21,7 @@ def _event(
         price=150.0,
         timestamp=timestamp,
         asset_class="stock",
+        regime=regime,
     )
 
 
@@ -41,6 +43,14 @@ class TestStressEvent:
         except AttributeError:
             raised = True
         assert raised
+
+    def test_regime_field_stored(self) -> None:
+        e = _event(regime="high_vol")
+        assert e.regime == "high_vol"
+
+    def test_regime_default_normal(self) -> None:
+        e = _event()
+        assert e.regime == "normal"
 
 
 class TestEventStore:
