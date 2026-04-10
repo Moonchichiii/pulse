@@ -20,6 +20,8 @@ and this project adheres to
 - Project directory structure with package init files (#1)
 - .dockerignore to minimize Docker build context (#6)
 - render.yaml for Render deployment (#30)
+- FastAPI health endpoint at /health (#2)
+- Application config via pydantic-settings (#2)
 
 ### Changed
 
