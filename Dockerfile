@@ -1,4 +1,4 @@
-FROM python:3.12-slim@sha256:d0f10bd1c1e4e8f9d8e3e7d5d5f5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5 AS base
+FROM python:3.12-slim AS base
 
 # Install uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
