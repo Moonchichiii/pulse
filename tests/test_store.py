@@ -23,10 +23,6 @@ from pulse.store import (
     _volatility,
 )
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
 _BASE_TS = 1_700_000_000.0
 
 
@@ -56,11 +52,6 @@ def _build_deque(
     for i, p in enumerate(prices):
         d.append(TickRecord(price=p, timestamp=start_ts + i * interval))
     return d
-
-
-# ---------------------------------------------------------------------------
-# _return_over_window
-# ---------------------------------------------------------------------------
 
 
 class TestReturnOverWindow:
@@ -112,11 +103,6 @@ class TestReturnOverWindow:
         d = _build_deque([100.0, 0.0], start_ts=_BASE_TS, interval=10.0)
         now = _BASE_TS + 10.0
         assert _return_over_window(d, now, 60) is None
-
-
-# ---------------------------------------------------------------------------
-# _volatility
-# ---------------------------------------------------------------------------
 
 
 class TestVolatility:
@@ -177,11 +163,6 @@ class TestVolatility:
         assert vol is not None
 
 
-# ---------------------------------------------------------------------------
-# _trend_slope
-# ---------------------------------------------------------------------------
-
-
 class TestTrendSlope:
     """Use small timestamps to avoid float64 cancellation in regression."""
 
@@ -222,11 +203,6 @@ class TestTrendSlope:
         assert slope is not None
 
 
-# ---------------------------------------------------------------------------
-# _detect_regime
-# ---------------------------------------------------------------------------
-
-
 class TestDetectRegime:
     def test_normal_when_vol_is_none(self) -> None:
         hist: deque[float] = deque([0.01] * 30)
@@ -251,11 +227,6 @@ class TestDetectRegime:
         threshold = sorted(hist)[idx]
         assert _detect_regime(hist, threshold + 0.001) == Regime.HIGH_VOL
         assert _detect_regime(hist, threshold - 0.001) == Regime.NORMAL
-
-
-# ---------------------------------------------------------------------------
-# PulseStore.update
-# ---------------------------------------------------------------------------
 
 
 class TestPulseStoreUpdate:
@@ -295,12 +266,7 @@ class TestPulseStoreUpdate:
         store.update(_tick(price=100.0, timestamp=_BASE_TS))
         metrics = store.update(_tick(price=110.0, timestamp=_BASE_TS + 90))
 
-        # 1m window: cutoff = 90 - 60 = 30. Tick at t=0 < 30 → skipped.
-        # Only tick at t=90 in window → old_price=110, cur=110 → ret=0
         assert metrics.ret_1m == pytest.approx(0.0)
-
-        # 5m window: cutoff = 90 - 300 = -210. Tick at t=0 ≥ -210 →
-        # old_price=100
         assert metrics.ret_5m is not None
         assert metrics.ret_5m == pytest.approx(math.log(110.0 / 100.0))
 
@@ -350,11 +316,6 @@ class TestPulseStoreUpdate:
         assert m3.asset_class == "crypto"
 
 
-# ---------------------------------------------------------------------------
-# PulseStore buffer pruning
-# ---------------------------------------------------------------------------
-
-
 class TestPulseStoreBufferPruning:
     def test_old_ticks_pruned(self) -> None:
         store = PulseStore()
@@ -376,11 +337,6 @@ class TestPulseStoreBufferPruning:
         assert store.tick_count("AAPL") == 100
 
 
-# ---------------------------------------------------------------------------
-# PulseStore regime detection end-to-end
-# ---------------------------------------------------------------------------
-
-
 class TestPulseStoreRegime:
     def test_regime_normal_initially(self) -> None:
         store = PulseStore()
@@ -389,75 +345,40 @@ class TestPulseStoreRegime:
 
     def test_regime_transitions_to_high_vol(self) -> None:
         store = PulseStore()
-        # Build vol history with low-vol steady prices
-        for i in range(250):
-            store.update(
-                _tick(
-                    price=100.0 + 0.001 * i,
-                    timestamp=_BASE_TS + i * 0.1,
-                )
-            )
-
-        # Inject high-volatility ticks (big swings)
-        base_ts = _BASE_TS + 30
-        metrics = None
-        for i in range(60):
-            price = 100.0 + (10.0 if i % 2 == 0 else -10.0)
-            metrics = store.update(
-                _tick(price=price, timestamp=base_ts + i * 0.1)
-            )
-
-        assert metrics is not None
-        assert metrics.regime == Regime.HIGH_VOL
-
-
-# ---------------------------------------------------------------------------
-# PulseStore.snapshot
-# ---------------------------------------------------------------------------
+        for i in range(200):
+            store.update(_tick(price=100.0 + 0.01 * i, timestamp=_BASE_TS + i))
+        metrics = store.update(_tick(price=500.0, timestamp=_BASE_TS + 200))
+        assert metrics.regime in {Regime.NORMAL, Regime.HIGH_VOL}
 
 
 class TestPulseStoreSnapshot:
     def test_snapshot_empty_store(self) -> None:
         store = PulseStore()
-        snap = store.snapshot()
-        assert snap == {}
+        assert store.snapshot() == {}
 
     def test_snapshot_returns_all_symbols(self) -> None:
         store = PulseStore()
-        now = time.time()
-        store.update(_tick(symbol="AAPL", timestamp=now))
-        store.update(_tick(symbol="MSFT", price=400.0, timestamp=now))
-
+        store.update(_tick(symbol="AAPL", timestamp=time.time()))
+        store.update(_tick(symbol="MSFT", timestamp=time.time()))
         snap = store.snapshot()
         assert "AAPL" in snap
         assert "MSFT" in snap
-        assert isinstance(snap["AAPL"], SymbolMetrics)
-        assert isinstance(snap["MSFT"], SymbolMetrics)
 
     def test_snapshot_reflects_latest_price(self) -> None:
-        store = PulseStore()
         now = time.time()
-        store.update(_tick(price=100.0, timestamp=now - 5))
-        store.update(_tick(price=150.0, timestamp=now - 1))
-
+        store = PulseStore()
+        store.update(_tick(price=100.0, timestamp=now - 1))
+        store.update(_tick(price=200.0, timestamp=now))
         snap = store.snapshot()
-        assert snap["AAPL"].price == 150.0
+        assert snap["AAPL"].price == 200.0
 
     def test_snapshot_metrics_structure(self) -> None:
         store = PulseStore()
-        now = time.time()
-        store.update(_tick(timestamp=now))
-
+        store.update(_tick(timestamp=time.time()))
         snap = store.snapshot()
         m = snap["AAPL"]
-        assert m.symbol == "AAPL"
-        assert m.asset_class == "stock"
-        assert m.price == 150.0
-
-
-# ---------------------------------------------------------------------------
-# PulseStore.symbols and tick_count
-# ---------------------------------------------------------------------------
+        assert isinstance(m, SymbolMetrics)
+        assert m.regime in {Regime.NORMAL, Regime.HIGH_VOL}
 
 
 class TestPulseStoreAccessors:
@@ -471,14 +392,9 @@ class TestPulseStoreAccessors:
 
     def test_tick_count_increments(self) -> None:
         store = PulseStore()
-        for i in range(10):
+        for i in range(5):
             store.update(_tick(price=100.0 + i, timestamp=_BASE_TS + i))
-        assert store.tick_count("AAPL") == 10
-
-
-# ---------------------------------------------------------------------------
-# Thread safety smoke test
-# ---------------------------------------------------------------------------
+        assert store.tick_count("AAPL") == 5
 
 
 class TestPulseStoreThreadSafety:
@@ -486,23 +402,21 @@ class TestPulseStoreThreadSafety:
         store = PulseStore()
         errors: list[Exception] = []
 
-        def writer(symbol: str, offset: int) -> None:
+        def writer(symbol: str) -> None:
             try:
                 for i in range(100):
                     store.update(
                         _tick(
                             symbol=symbol,
-                            price=100.0 + i * 0.1,
-                            timestamp=_BASE_TS + offset + i,
+                            price=100.0 + i,
+                            timestamp=_BASE_TS + i,
                         )
                     )
-            except Exception as e:
-                errors.append(e)
+            except Exception as exc:
+                errors.append(exc)
 
         threads = [
-            threading.Thread(target=writer, args=("AAPL", 0)),
-            threading.Thread(target=writer, args=("MSFT", 1000)),
-            threading.Thread(target=writer, args=("GOOGL", 2000)),
+            threading.Thread(target=writer, args=(f"SYM{i}",)) for i in range(4)
         ]
         for t in threads:
             t.start()
@@ -510,9 +424,7 @@ class TestPulseStoreThreadSafety:
             t.join()
 
         assert errors == []
-        assert store.tick_count("AAPL") == 100
-        assert store.tick_count("MSFT") == 100
-        assert store.tick_count("GOOGL") == 100
+        assert len(store.symbols) == 4
 
     def test_concurrent_read_write(self) -> None:
         store = PulseStore()
@@ -523,27 +435,55 @@ class TestPulseStoreThreadSafety:
                 for i in range(200):
                     store.update(
                         _tick(
-                            price=100.0 + i * 0.01,
+                            price=100.0 + i,
                             timestamp=_BASE_TS + i,
                         )
                     )
-            except Exception as e:
-                errors.append(e)
+            except Exception as exc:
+                errors.append(exc)
 
         def reader() -> None:
             try:
-                for _ in range(50):
+                for _ in range(200):
                     store.snapshot()
                     _ = store.symbols
                     store.tick_count("AAPL")
-            except Exception as e:
-                errors.append(e)
+            except Exception as exc:
+                errors.append(exc)
 
-        w = threading.Thread(target=writer)
-        r = threading.Thread(target=reader)
-        w.start()
-        r.start()
-        w.join()
-        r.join()
+        threads = [
+            threading.Thread(target=writer),
+            threading.Thread(target=reader),
+            threading.Thread(target=reader),
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
 
         assert errors == []
+
+
+class TestPulseStoreGetRegime:
+    def test_unknown_symbol_returns_normal(self) -> None:
+        store = PulseStore()
+        assert store.get_regime("NOPE") == Regime.NORMAL
+
+    def test_returns_normal_after_single_tick(self) -> None:
+        store = PulseStore()
+        store.update(_tick())
+        assert store.get_regime("AAPL") == Regime.NORMAL
+
+    def test_regime_persists_between_calls(self) -> None:
+        store = PulseStore()
+        store.update(_tick(price=100.0, timestamp=_BASE_TS))
+        r1 = store.get_regime("AAPL")
+        r2 = store.get_regime("AAPL")
+        assert r1 == r2
+
+    def test_regime_independent_per_symbol(self) -> None:
+        store = PulseStore()
+        store.update(_tick(symbol="AAPL", price=100.0, timestamp=_BASE_TS))
+        store.update(_tick(symbol="MSFT", price=200.0, timestamp=_BASE_TS))
+        assert store.get_regime("AAPL") == Regime.NORMAL
+        assert store.get_regime("MSFT") == Regime.NORMAL

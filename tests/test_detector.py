@@ -1,9 +1,10 @@
-"""Tests for StressDetector — threshold checks and cooldown."""
+"""Tests for StressDetector — threshold checks, cooldown, and regime."""
 
 from __future__ import annotations
 
 from pulse.detector import (
     COOLDOWN_SECONDS,
+    REGIME_MULTIPLIERS,
     THRESHOLDS,
     StressDetector,
 )
@@ -167,7 +168,6 @@ class TestAssetThresholds:
     def test_crypto_higher_threshold_than_stock(self) -> None:
         es = EventStore()
         det = StressDetector(es)
-        # 1% move: above stock threshold, below crypto
         stock_events = det.check(
             _metrics(
                 symbol="AAPL",
@@ -190,7 +190,6 @@ class TestAssetThresholds:
     def test_forex_lower_threshold_than_stock(self) -> None:
         es = EventStore()
         det = StressDetector(es)
-        # 0.002 move: above forex threshold, below stock
         forex_events = det.check(
             _metrics(
                 symbol="EURUSD",
@@ -222,6 +221,105 @@ class TestAssetThresholds:
             )
         )
         assert len(events) == 1
+
+
+class TestRegimeAwareThresholds:
+    """High-vol regime raises thresholds by 1.5x."""
+
+    def test_normal_regime_uses_base_threshold(self) -> None:
+        es = EventStore()
+        det = StressDetector(es)
+        base = THRESHOLDS["stock"][EventType.MOVE_1M]
+        # Just above base → fires in normal
+        events = det.check(_metrics(ret_1m=base + 0.001, regime=Regime.NORMAL))
+        assert len(events) == 1
+        assert events[0].threshold == base * REGIME_MULTIPLIERS["normal"]
+
+    def test_high_vol_raises_threshold(self) -> None:
+        es = EventStore()
+        det = StressDetector(es)
+        base = THRESHOLDS["stock"][EventType.MOVE_1M]
+        # Above base but below base*1.5 → should NOT fire in high_vol
+        move = base * 1.2
+        events = det.check(_metrics(ret_1m=move, regime=Regime.HIGH_VOL))
+        assert len(events) == 0
+
+    def test_high_vol_fires_on_extreme_move(self) -> None:
+        es = EventStore()
+        det = StressDetector(es)
+        base = THRESHOLDS["stock"][EventType.MOVE_1M]
+        mult = REGIME_MULTIPLIERS["high_vol"]
+        # Above base*1.5 → fires even in high_vol
+        move = base * mult + 0.001
+        events = det.check(_metrics(ret_1m=move, regime=Regime.HIGH_VOL))
+        assert len(events) == 1
+        assert events[0].regime == "high_vol"
+        assert events[0].threshold == base * mult
+
+    def test_high_vol_suppresses_vol_spike(self) -> None:
+        es = EventStore()
+        det = StressDetector(es)
+        base = THRESHOLDS["stock"][EventType.VOL_SPIKE]
+        # Between base and base*1.5 → fires normal, not high_vol
+        vol = base * 1.2
+
+        normal_events = det.check(
+            _metrics(
+                symbol="A",
+                volatility=vol,
+                regime=Regime.NORMAL,
+                timestamp=_BASE_TS,
+            )
+        )
+        high_events = det.check(
+            _metrics(
+                symbol="B",
+                volatility=vol,
+                regime=Regime.HIGH_VOL,
+                timestamp=_BASE_TS,
+            )
+        )
+        assert len(normal_events) == 1
+        assert len(high_events) == 0
+
+    def test_event_carries_regime_tag(self) -> None:
+        es = EventStore()
+        det = StressDetector(es)
+        events = det.check(_metrics(ret_1m=0.05, regime=Regime.HIGH_VOL))
+        assert len(events) == 1
+        assert events[0].regime == "high_vol"
+
+    def test_event_carries_normal_regime(self) -> None:
+        es = EventStore()
+        det = StressDetector(es)
+        events = det.check(_metrics(ret_1m=0.05, regime=Regime.NORMAL))
+        assert len(events) == 1
+        assert events[0].regime == "normal"
+
+    def test_5m_move_regime_aware(self) -> None:
+        es = EventStore()
+        det = StressDetector(es)
+        base = THRESHOLDS["stock"][EventType.MOVE_5M]
+        # Between base and base*mult → fires normal, not high_vol
+        move = base * 1.2
+        normal = det.check(
+            _metrics(
+                symbol="A",
+                ret_5m=move,
+                regime=Regime.NORMAL,
+                timestamp=_BASE_TS,
+            )
+        )
+        high = det.check(
+            _metrics(
+                symbol="B",
+                ret_5m=move,
+                regime=Regime.HIGH_VOL,
+                timestamp=_BASE_TS,
+            )
+        )
+        assert len(normal) == 1
+        assert len(high) == 0
 
 
 class TestMultipleEventsPerCheck:
@@ -260,4 +358,5 @@ class TestMultipleEventsPerCheck:
         assert e.price == 155.0
         assert e.timestamp == _BASE_TS
         assert e.asset_class == "stock"
+        assert e.regime == "normal"
         assert len(e.event_id) == 12

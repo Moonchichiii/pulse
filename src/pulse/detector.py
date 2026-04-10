@@ -39,6 +39,13 @@ _DEFAULT_THRESHOLDS: dict[EventType, float] = {
     EventType.VOL_SPIKE: 0.003,
 }
 
+REGIME_MULTIPLIERS: dict[str, float] = {
+    "normal": 1.0,
+    "high_vol": 1.5,
+}
+
+_DEFAULT_MULTIPLIER = 1.0
+
 
 class StressDetector:
     """Check metrics against asset-aware thresholds and emit events."""
@@ -68,6 +75,7 @@ class StressDetector:
         price: float,
         timestamp: float,
         asset_class: str,
+        regime: str,
     ) -> StressEvent:
         """Create event, store it, update cooldown, return it."""
         event = StressEvent.create(
@@ -78,15 +86,17 @@ class StressDetector:
             price=price,
             timestamp=timestamp,
             asset_class=asset_class,
+            regime=regime,
         )
         self._event_store.add(event)
         self._last_fired[(symbol, event_type)] = timestamp
         logger.info(
-            "Stress event: %s %s severity=%.6f threshold=%.6f",
+            "Stress event: %s %s severity=%.6f threshold=%.6f regime=%s",
             symbol,
             event_type.value,
             severity,
             threshold,
+            regime,
         )
         return event
 
@@ -95,11 +105,13 @@ class StressDetector:
         asset_thresholds = THRESHOLDS.get(
             metrics.asset_class, _DEFAULT_THRESHOLDS
         )
+        regime_str = str(metrics.regime)
+        multiplier = REGIME_MULTIPLIERS.get(regime_str, _DEFAULT_MULTIPLIER)
         events: list[StressEvent] = []
 
         # 1-minute move
         if metrics.ret_1m is not None:
-            thresh = asset_thresholds[EventType.MOVE_1M]
+            thresh = asset_thresholds[EventType.MOVE_1M] * multiplier
             severity = abs(metrics.ret_1m)
             if severity > thresh and not self._on_cooldown(
                 metrics.symbol, EventType.MOVE_1M, metrics.timestamp
@@ -113,12 +125,13 @@ class StressDetector:
                         price=metrics.price,
                         timestamp=metrics.timestamp,
                         asset_class=metrics.asset_class,
+                        regime=regime_str,
                     )
                 )
 
         # 5-minute move
         if metrics.ret_5m is not None:
-            thresh = asset_thresholds[EventType.MOVE_5M]
+            thresh = asset_thresholds[EventType.MOVE_5M] * multiplier
             severity = abs(metrics.ret_5m)
             if severity > thresh and not self._on_cooldown(
                 metrics.symbol, EventType.MOVE_5M, metrics.timestamp
@@ -132,12 +145,13 @@ class StressDetector:
                         price=metrics.price,
                         timestamp=metrics.timestamp,
                         asset_class=metrics.asset_class,
+                        regime=regime_str,
                     )
                 )
 
         # Volatility spike
         if metrics.volatility is not None:
-            thresh = asset_thresholds[EventType.VOL_SPIKE]
+            thresh = asset_thresholds[EventType.VOL_SPIKE] * multiplier
             if metrics.volatility > thresh and not self._on_cooldown(
                 metrics.symbol,
                 EventType.VOL_SPIKE,
@@ -152,6 +166,7 @@ class StressDetector:
                         price=metrics.price,
                         timestamp=metrics.timestamp,
                         asset_class=metrics.asset_class,
+                        regime=regime_str,
                     )
                 )
 

@@ -1,22 +1,14 @@
-"""Event models, store, and stress detection for market events."""
+"""Event models and store for market stress events."""
 
 from __future__ import annotations
 
-import logging
 import threading
 import uuid
 from collections import deque
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from pulse.store import SymbolMetrics
-
-logger = logging.getLogger(__name__)
 
 MAX_EVENTS = 500
-COOLDOWN_SECONDS = 30.0
 
 
 class EventType(StrEnum):
@@ -25,31 +17,6 @@ class EventType(StrEnum):
     MOVE_1M = "move_1m"
     MOVE_5M = "move_5m"
     VOL_SPIKE = "vol_spike"
-
-
-ASSET_THRESHOLDS: dict[str, dict[EventType, float]] = {
-    "crypto": {
-        EventType.MOVE_1M: 0.02,
-        EventType.MOVE_5M: 0.05,
-        EventType.VOL_SPIKE: 0.03,
-    },
-    "stock": {
-        EventType.MOVE_1M: 0.01,
-        EventType.MOVE_5M: 0.03,
-        EventType.VOL_SPIKE: 0.02,
-    },
-    "forex": {
-        EventType.MOVE_1M: 0.003,
-        EventType.MOVE_5M: 0.008,
-        EventType.VOL_SPIKE: 0.005,
-    },
-}
-
-_DEFAULT_THRESHOLDS: dict[EventType, float] = {
-    EventType.MOVE_1M: 0.01,
-    EventType.MOVE_5M: 0.03,
-    EventType.VOL_SPIKE: 0.02,
-}
 
 
 @dataclass(frozen=True)
@@ -64,6 +31,7 @@ class StressEvent:
     price: float
     timestamp: float
     asset_class: str
+    regime: str
 
     @staticmethod
     def create(
@@ -75,6 +43,7 @@ class StressEvent:
         price: float,
         timestamp: float,
         asset_class: str,
+        regime: str,
     ) -> StressEvent:
         """Factory with auto-generated event ID."""
         return StressEvent(
@@ -86,6 +55,7 @@ class StressEvent:
             price=price,
             timestamp=timestamp,
             asset_class=asset_class,
+            regime=regime,
         )
 
 
@@ -127,65 +97,3 @@ class EventStore:
         """Remove all events."""
         with self._lock:
             self._events.clear()
-
-
-class StressDetector:
-    """Detect market stress events with per-symbol cooldowns."""
-
-    def __init__(self, event_store: EventStore) -> None:
-        self._store = event_store
-        self._lock = threading.Lock()
-        self._cooldowns: dict[tuple[str, EventType], float] = {}
-
-    def check(self, metrics: SymbolMetrics) -> list[StressEvent]:
-        """Evaluate metrics against asset-aware thresholds.
-
-        Returns a list of newly created stress events.
-        Respects a 30-second cooldown per (symbol, event_type).
-        """
-        thresholds = ASSET_THRESHOLDS.get(
-            metrics.asset_class, _DEFAULT_THRESHOLDS
-        )
-        now = metrics.timestamp
-        events: list[StressEvent] = []
-
-        checks: list[tuple[EventType, float | None]] = [
-            (EventType.MOVE_1M, metrics.ret_1m),
-            (EventType.MOVE_5M, metrics.ret_5m),
-            (EventType.VOL_SPIKE, metrics.volatility),
-        ]
-
-        with self._lock:
-            for event_type, value in checks:
-                if value is None:
-                    continue
-                threshold = thresholds[event_type]
-                if abs(value) <= threshold:
-                    continue
-                key = (metrics.symbol, event_type)
-                last = self._cooldowns.get(key, 0.0)
-                if (now - last) < COOLDOWN_SECONDS:
-                    continue
-                self._cooldowns[key] = now
-                event = StressEvent.create(
-                    symbol=metrics.symbol,
-                    event_type=event_type,
-                    severity=value,
-                    threshold=threshold,
-                    price=metrics.price,
-                    timestamp=now,
-                    asset_class=metrics.asset_class,
-                )
-                events.append(event)
-
-        for event in events:
-            self._store.add(event)
-            logger.info(
-                "Stress event: %s %s severity=%.6f threshold=%.6f",
-                event.symbol,
-                event.event_type,
-                event.severity,
-                event.threshold,
-            )
-
-        return events
