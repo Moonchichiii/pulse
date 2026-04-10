@@ -1,7 +1,7 @@
 """Background worker — daemon thread running the async event loop.
 
 Spawns one WebSocket consumer per asset class, reads ticks from a
-shared queue, and feeds them into PulseStore.  The main FastAPI
+shared queue, and feeds them into PulseStore. The main FastAPI
 process calls ``start_worker()`` on startup and ``stop_worker()``
 on shutdown.
 """
@@ -19,62 +19,51 @@ from pulse.models import AssetClass, Tick
 
 if TYPE_CHECKING:
     from pulse.config import Settings
+    from pulse.detector import StressDetector
     from pulse.store import PulseStore
 
 logger = logging.getLogger(__name__)
-
-# ---------------------------------------------------------------------------
-# Module-level state
-# ---------------------------------------------------------------------------
 
 _thread: threading.Thread | None = None
 _loop: asyncio.AbstractEventLoop | None = None
 _stop_event: asyncio.Event | None = None
 
 
-# ---------------------------------------------------------------------------
-# Queue dispatcher
-# ---------------------------------------------------------------------------
-
-
 async def _dispatch(
     queue: asyncio.Queue[Tick],
     store: PulseStore,
+    detector: StressDetector,
     stop: asyncio.Event,
 ) -> None:
-    """Read ticks from the queue and push them into the store."""
+    """Read ticks from the queue, update store, run stress checks."""
     while not stop.is_set():
         try:
             tick = await asyncio.wait_for(queue.get(), timeout=1.0)
         except TimeoutError:
             continue
         try:
-            store.update(tick)
+            metrics = store.update(tick)
+            detector.check(metrics)
         except Exception:
-            logger.exception("Error updating store for %s", tick.symbol)
+            logger.exception("Error processing tick for %s", tick.symbol)
 
 
-# ---------------------------------------------------------------------------
-# Async entry point (runs inside the daemon thread)
-# ---------------------------------------------------------------------------
-
-
-async def _run(settings: Settings, store: PulseStore) -> None:
+async def _run(
+    settings: Settings,
+    store: PulseStore,
+    detector: StressDetector,
+) -> None:
     """Main async function executed in the background thread."""
     stop = asyncio.Event()
 
-    # Make stop event accessible for shutdown
     global _stop_event  # noqa: PLW0603
     _stop_event = stop
 
     queue: asyncio.Queue[Tick] = asyncio.Queue(maxsize=10_000)
-
     tasks: list[asyncio.Task[None]] = []
 
-    # Dispatcher
-    tasks.append(asyncio.create_task(_dispatch(queue, store, stop)))
+    tasks.append(asyncio.create_task(_dispatch(queue, store, detector, stop)))
 
-    # Feed consumers
     stock_syms = parse_symbols(settings.stock_symbols)
     forex_syms = parse_symbols(settings.forex_symbols)
     crypto_syms = parse_symbols(settings.crypto_symbols)
@@ -121,10 +110,8 @@ async def _run(settings: Settings, store: PulseStore) -> None:
     if not settings.eodhd_api_key:
         logger.warning("EODHD_API_KEY not set — no feeds will connect")
 
-    # Wait until stop is signalled
     await stop.wait()
 
-    # Cancel all tasks
     for task in tasks:
         task.cancel()
 
@@ -132,32 +119,27 @@ async def _run(settings: Settings, store: PulseStore) -> None:
     logger.info("Worker stopped cleanly")
 
 
-# ---------------------------------------------------------------------------
-# Thread entry point
-# ---------------------------------------------------------------------------
-
-
-def _thread_target(settings: Settings, store: PulseStore) -> None:
+def _thread_target(
+    settings: Settings,
+    store: PulseStore,
+    detector: StressDetector,
+) -> None:
     """Entry point for the daemon thread."""
     global _loop  # noqa: PLW0603
     _loop = asyncio.new_event_loop()
     asyncio.set_event_loop(_loop)
     try:
-        _loop.run_until_complete(_run(settings, store))
+        _loop.run_until_complete(_run(settings, store, detector))
     finally:
         _loop.close()
 
 
-# ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
-
-
-def start_worker(settings: Settings, store: PulseStore) -> None:
-    """Start the background worker thread.
-
-    Safe to call multiple times — subsequent calls are no-ops.
-    """
+def start_worker(
+    settings: Settings,
+    store: PulseStore,
+    detector: StressDetector,
+) -> None:
+    """Start the background worker thread."""
     global _thread  # noqa: PLW0603
     if _thread is not None and _thread.is_alive():
         logger.debug("Worker already running")
@@ -165,7 +147,7 @@ def start_worker(settings: Settings, store: PulseStore) -> None:
 
     _thread = threading.Thread(
         target=_thread_target,
-        args=(settings, store),
+        args=(settings, store, detector),
         daemon=True,
         name="pulse-worker",
     )
