@@ -28,6 +28,7 @@ and this project adheres to
 - PulseStore with rolling buffers, returns, volatility, trend, regime (#12)
 - Background worker thread with async event loop and queue dispatcher (#13)
 - Lifespan-managed worker start/stop in FastAPI app (#13)
+- Comprehensive unit tests for PulseStore metrics and regime detection (#14)
 
 ### Changed
 
