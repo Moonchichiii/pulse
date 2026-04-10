@@ -259,3 +259,22 @@ class PulseStore:
             if buf is None:
                 return 0
             return len(buf.ticks)
+
+    def get_ticks(
+        self, symbol: str, *, since: float | None = None
+    ) -> list[TickRecord]:
+        """Return tick records for a symbol, optionally since a timestamp."""
+        with self._lock:
+            buf = self._buffers.get(symbol)
+            if buf is None:
+                return []
+            if since is None:
+                return list(buf.ticks)
+            return [t for t in buf.ticks if t.timestamp >= since]
+
+    def get_stock_symbols(self) -> list[str]:
+        """Return symbols whose asset class is 'stock'."""
+        with self._lock:
+            return [
+                s for s, b in self._buffers.items() if b.asset_class == "stock"
+            ]
