@@ -22,6 +22,8 @@ and this project adheres to
 - render.yaml for Render deployment (#30)
 - FastAPI health endpoint at /health (#2)
 - Application config via pydantic-settings (#2)
+- Test fixtures with async httpx client (#3)
+- Health endpoint tests (status, payload, content type) (#3)
 
 ### Changed
 
