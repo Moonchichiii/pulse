@@ -24,6 +24,6 @@ repos:
           - fastapi>=0.115
           - pydantic>=2.10
           - pydantic-settings>=2.8
-        args: [--strict]
+        args: [--strict, src/]
         pass_filenames: false
         files: ^src/
