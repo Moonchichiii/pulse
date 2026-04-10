@@ -1,39 +1,39 @@
-"""FastAPI application entry point."""
+"""FastAPI application factory and top-level routes."""
 
-from typing import Any
+from __future__ import annotations
+
+from contextlib import asynccontextmanager
+from typing import TYPE_CHECKING
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from pulse.config import get_settings
+from pulse.config import Settings
+from pulse.store import PulseStore
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
+settings = Settings()
+store = PulseStore()
 
 
-def create_app() -> FastAPI:
-    """Create and configure the FastAPI application."""
-    settings = get_settings()
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    """Start worker on startup, stop on shutdown."""
+    from pulse.worker import start_worker, stop_worker
 
-    application = FastAPI(
-        title="Pulse",
-        description="Real-time multi-asset market dashboard",
-        version="0.1.0",
-        debug=settings.debug,
-    )
-
-    application.mount(
-        "/static",
-        StaticFiles(directory="static"),
-        name="static",
-    )
-
-    @application.get("/health")
-    async def health() -> dict[str, Any]:
-        return {
-            "status": "ok",
-            "app": settings.app_name,
-            "version": "0.1.0",
-        }
-
-    return application
+    start_worker(settings, store)
+    yield
+    stop_worker()
 
 
-app: FastAPI = create_app()
+app = FastAPI(title=settings.app_name, lifespan=lifespan)
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+
+@app.get("/health")
+async def health() -> dict[str, str]:
+    """Health check endpoint."""
+    return {"status": "ok"}

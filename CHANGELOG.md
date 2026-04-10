@@ -26,6 +26,8 @@ and this project adheres to
 - Tick parsers for stock, forex, crypto feeds (#11)
 - Feed symbol config: SEK and EUR forex pairs (#11)
 - PulseStore with rolling buffers, returns, volatility, trend, regime (#12)
+- Background worker thread with async event loop and queue dispatcher (#13)
+- Lifespan-managed worker start/stop in FastAPI app (#13)
 
 ### Changed
 
