@@ -25,6 +25,7 @@ and this project adheres to
 - EODHD WebSocket feed consumers with reconnect/backoff (#11)
 - Tick parsers for stock, forex, crypto feeds (#11)
 - Feed symbol config: SEK and EUR forex pairs (#11)
+- PulseStore with rolling buffers, returns, volatility, trend, regime (#12)
 
 ### Changed
 
