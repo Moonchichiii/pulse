@@ -32,6 +32,17 @@ and this project adheres to
 - EventType enum (move_1m, move_5m, vol_spike) (#16)
 - StressEvent frozen dataclass with factory method (#16)
 - EventStore with thread-safe rolling buffer (#16)
+- StressDetector with asset-aware thresholds and cooldown (#17)
+- Regime-aware threshold multipliers (1.5× in high_vol) (#17)
+- StressEvent carries regime tag (#18)
+- Detector integration in worker dispatch loop (#18)
+- Time-bucketed price alignment with forward-fill (#19)
+- Return matrix builder with log-returns (#20)
+- Pearson correlation function (#21)
+- Regime-aware CorrelationEngine (15m high_vol / 60m normal) (#21)
+- PulseStore.get_ticks() and get_stock_symbols() methods (#19)
+- CorrelationEngine wired into FastAPI app (#21)
+- 150 unit tests covering all modules (#22)
 
 ### Changed
 
