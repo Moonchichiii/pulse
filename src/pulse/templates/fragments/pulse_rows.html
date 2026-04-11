@@ -1,0 +1,101 @@
+{% for m in metrics %}
+<tr
+  class="border-b border-gray-800/50 transition-colors hover:bg-gray-800/40"
+>
+  <!-- Symbol -->
+  <td class="px-4 py-2 font-semibold text-gray-100">{{ m.symbol }}</td>
+
+  <!-- Asset class badge -->
+  <td class="px-4 py-2">
+    {% if m.asset_class == "stock" %}
+    <span
+      class="rounded bg-blue-900/60 px-1.5 py-0.5 text-xs text-blue-300"
+      >stock</span
+    >
+    {% elif m.asset_class == "forex" %}
+    <span
+      class="rounded bg-purple-900/60 px-1.5 py-0.5 text-xs text-purple-300"
+      >forex</span
+    >
+    {% elif m.asset_class == "crypto" %}
+    <span
+      class="rounded bg-yellow-900/60 px-1.5 py-0.5 text-xs text-yellow-300"
+      >crypto</span
+    >
+    {% else %}
+    <span
+      class="rounded bg-gray-800 px-1.5 py-0.5 text-xs text-gray-400"
+      >{{ m.asset_class }}</span
+    >
+    {% endif %}
+  </td>
+
+  <!-- Price -->
+  <td class="px-4 py-2 text-right tabular-nums text-gray-200">
+    {{ m.price | fmt_price }}
+  </td>
+
+  <!-- 1m return -->
+  <td
+    class="px-4 py-2 text-right tabular-nums {{ m.ret_1m | ret_color }}"
+  >
+    {{ m.ret_1m | fmt_pct }}
+  </td>
+
+  <!-- 5m return -->
+  <td
+    class="px-4 py-2 text-right tabular-nums {{ m.ret_5m | ret_color }}"
+  >
+    {{ m.ret_5m | fmt_pct }}
+  </td>
+
+  <!-- 15m return -->
+  <td
+    class="px-4 py-2 text-right tabular-nums {{ m.ret_15m | ret_color }}"
+  >
+    {{ m.ret_15m | fmt_pct }}
+  </td>
+
+  <!-- Volatility -->
+  <td class="px-4 py-2 text-right tabular-nums text-gray-400">
+    {% if m.volatility is not none %} {{ "%.4f" | format(m.volatility) }}
+    {% else %}
+    <span class="text-gray-700">—</span>
+    {% endif %}
+  </td>
+
+  <!-- Trend -->
+  <td class="px-4 py-2 text-right tabular-nums">
+    {% if m.trend is not none %} {% if m.trend > 0 %}
+    <span class="text-emerald-400">▲</span>
+    {% elif m.trend < 0 %}
+    <span class="text-red-400">▼</span>
+    {% else %}
+    <span class="text-gray-500">—</span>
+    {% endif %} {% else %}
+    <span class="text-gray-700">—</span>
+    {% endif %}
+  </td>
+
+  <!-- Regime badge -->
+  <td class="px-4 py-2">
+    {% if m.regime == "high_vol" %}
+    <span
+      class="rounded bg-red-900/60 px-1.5 py-0.5 text-xs font-medium text-red-300"
+      >HIGH VOL</span
+    >
+    {% else %}
+    <span
+      class="rounded bg-gray-800 px-1.5 py-0.5 text-xs text-gray-500"
+      >normal</span
+    >
+    {% endif %}
+  </td>
+</tr>
+{% else %}
+<tr>
+  <td colspan="9" class="px-4 py-8 text-center text-gray-600">
+    Waiting for data…
+  </td>
+</tr>
+{% endfor %}

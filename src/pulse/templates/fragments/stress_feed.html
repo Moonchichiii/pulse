@@ -1,0 +1,5 @@
+{% for event in events %}
+  {% include "fragments/stress_card.html" %}
+{% else %}
+<p class="py-4 text-center text-xs text-gray-600">No events yet…</p>
+{% endfor %}
