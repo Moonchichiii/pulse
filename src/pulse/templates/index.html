@@ -35,7 +35,7 @@
                 <label class="text-sm font-medium text-gray-400">Show Top:</label>
                 <select
                     x-model="topK"
-                    class="rounded border border-gray-600 bg-gray-700 px-3 py-1.5 text-sm text-gray-200 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    class="rounded border border-gray-700 bg-gray-700 px-3 py-1.5 text-sm text-gray-200 hover:bg-gray-600 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 >
                     <option value="all">All</option>
                     <option value="5">Top 5</option>
@@ -48,7 +48,7 @@
                 <label class="text-sm font-medium text-gray-400">Base Symbol:</label>
                 <select
                     x-model="baseSymbol"
-                    class="rounded border border-gray-600 bg-gray-700 px-3 py-1.5 text-sm text-gray-200 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    class="rounded border border-gray-700 bg-gray-700 px-3 py-1.5 text-sm text-gray-200 hover:bg-gray-600 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 >
                     <option value="SPY">SPY</option>
                     <option value="AAPL">AAPL</option>
@@ -65,7 +65,7 @@
                 <label class="text-sm font-medium text-gray-400">Bucket Size:</label>
                 <select
                     x-model="bucketSize"
-                    class="rounded border border-gray-600 bg-gray-700 px-3 py-1.5 text-sm text-gray-200 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    class="rounded border border-gray-700 bg-gray-700 px-3 py-1.5 text-sm text-gray-200 hover:bg-gray-600 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 >
                     <option value="10">10s</option>
                     <option value="20">20s</option>
@@ -113,13 +113,15 @@
                             hx-swap="innerHTML"
                             class="divide-y divide-gray-700"
                         >
-                            <tr>
-                                <td colspan="9" class="px-4 py-8 text-center text-gray-500">
-                                    <svg class="mx-auto mb-2 h-5 w-5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                    </svg>
-                                    Connecting to live feed...
+                            <tr class="skeleton">
+                                <td colspan="9" class="px-4 py-8 text-center">
+                                    <div class="mx-auto mb-2 h-5 w-5 animate-spin">
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                    </div>
+                                    <span class="text-gray-500">Connecting to live feed...</span>
                                 </td>
                             </tr>
                         </tbody>
@@ -162,7 +164,10 @@
                     hx-swap="innerHTML"
                     class="px-6 py-4"
                 >
-                    <p class="text-sm text-gray-500">Loading...</p>
+                    <div class="skeleton">
+                        <div class="h-4 w-full rounded bg-gray-700 mb-3"></div>
+                        <div class="h-4 w-3/4 rounded bg-gray-700"></div>
+                    </div>
                 </div>
             </div>
         </div>
