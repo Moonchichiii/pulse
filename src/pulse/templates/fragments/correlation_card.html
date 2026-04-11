@@ -1,0 +1,42 @@
+{% if correlations %}
+<table class="w-full text-xs">
+  <thead>
+    <tr class="border-b border-gray-800 text-gray-500">
+      <th class="pb-1 text-left font-medium">Symbol</th>
+      <th class="pb-1 text-right font-medium">ρ vs {{ base_symbol }}</th>
+      <th class="pb-1 font-medium"></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for symbol, corr in correlations | dictsort %}
+    <tr class="border-b border-gray-800/40">
+      <td class="py-1.5 font-semibold text-gray-200">{{ symbol }}</td>
+      <td
+        class="py-1.5 text-right tabular-nums
+          {% if corr >= 0.7 %}text-emerald-400
+          {% elif corr >= 0.3 %}text-emerald-600
+          {% elif corr >= -0.3 %}text-gray-400
+          {% elif corr >= -0.7 %}text-orange-500
+          {% else %}text-red-400{% endif %}"
+      >
+        {{ "%+.3f" | format(corr) }}
+      </td>
+      <td class="py-1.5 pl-2">
+        <!-- Spark bar: width proportional to |corr|, colour by sign -->
+        <div class="h-1.5 w-24 overflow-hidden rounded-full bg-gray-800">
+          <div
+            class="h-full rounded-full
+              {% if corr >= 0 %}bg-emerald-500{% else %}bg-red-500{% endif %}"
+            style="width: {{ (corr | abs * 100) | round | int }}%"
+          ></div>
+        </div>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="py-4 text-center text-xs text-gray-600">
+  Accumulating data…
+</p>
+{% endif %}

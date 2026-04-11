@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{% block title %}Pulse{% endblock %} — Market Dashboard</title>
+
+    <!-- Tailwind CSS (CDN, dark mode via class strategy) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            fontFamily: { mono: ["JetBrains Mono", "Fira Code", "monospace"] },
+          },
+        },
+      };
+    </script>
+
+    <!-- HTMX -->
+    <script
+      src="https://unpkg.com/htmx.org@2.0.4"
+      integrity="sha384-HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPfvwD79OC/LTtG6dMp+"
+      crossorigin="anonymous"
+    ></script>
+
+    <!-- HTMX SSE extension -->
+    <script src="https://unpkg.com/htmx-ext-sse@2.2.2/sse.js"></script>
+
+    <!-- Alpine.js (optional — dropdown/tab helpers) -->
+    <script
+      defer
+      src="https://unpkg.com/alpinejs@3.14.8/dist/cdn.min.js"
+    ></script>
+
+    <link rel="stylesheet" href="/static/app.css" />
+  </head>
+
+  <body
+    class="min-h-screen bg-gray-950 font-mono text-gray-100 antialiased"
+  >
+    <!-- Top nav bar -->
+    <header
+      class="sticky top-0 z-10 flex items-center justify-between border-b border-gray-800 bg-gray-950/90 px-6 py-3 backdrop-blur"
+    >
+      <div class="flex items-center gap-3">
+        <span class="text-lg font-bold tracking-tight text-emerald-400"
+          >⚡ Pulse</span
+        >
+        <span class="text-xs text-gray-500">real-time market monitor</span>
+      </div>
+
+      <div class="flex items-center gap-4 text-xs text-gray-500">
+        <span id="connection-status" class="flex items-center gap-1.5">
+          <span
+            class="inline-block h-2 w-2 rounded-full bg-emerald-500"
+          ></span>
+          live
+        </span>
+      </div>
+    </header>
+
+    <!-- Page content -->
+    <main class="mx-auto max-w-screen-2xl px-4 py-6">
+      {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer
+      class="mt-8 border-t border-gray-800 px-6 py-3 text-center text-xs text-gray-600"
+    >
+      Pulse v0.1.0 — data via EODHD · prices are indicative only
+    </footer>
+  </body>
+</html>

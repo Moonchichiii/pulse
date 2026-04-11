@@ -1,0 +1,47 @@
+<div
+  class="rounded-lg border px-3 py-2 text-xs
+    {% if event.severity / event.threshold > 3 %}
+      border-red-700/60 bg-red-950/40
+    {% elif event.severity / event.threshold > 1.5 %}
+      border-orange-700/60 bg-orange-950/40
+    {% else %}
+      border-yellow-700/60 bg-yellow-950/30
+    {% endif %}"
+>
+  <div class="flex items-center justify-between gap-2">
+    <span class="font-semibold text-gray-100">{{ event.symbol }}</span>
+
+    <span
+      class="rounded px-1.5 py-0.5 font-medium
+        {% if event.event_type == "move_1m" %}
+          bg-blue-900/60 text-blue-300
+        {% elif event.event_type == "move_5m" %}
+          bg-purple-900/60 text-purple-300
+        {% else %}
+          bg-orange-900/60 text-orange-300
+        {% endif %}"
+    >
+      {{ event.event_type }}
+    </span>
+  </div>
+
+  <div class="mt-1 flex items-center justify-between text-gray-400">
+    <span
+      >sev
+      <span class="text-gray-200 tabular-nums"
+        >{{ "%.5f" | format(event.severity) }}</span
+      ></span
+    >
+    <span
+      >thr
+      <span class="tabular-nums"
+        >{{ "%.5f" | format(event.threshold) }}</span
+      ></span
+    >
+  </div>
+
+  <div class="mt-1 flex items-center justify-between text-gray-600">
+    <span>{{ event.asset_class }} · {{ event.regime }}</span>
+    <span class="tabular-nums">{{ event.timestamp | fmt_time }}</span>
+  </div>
+</div>

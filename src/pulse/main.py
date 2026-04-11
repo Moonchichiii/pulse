@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING
 
@@ -12,6 +13,7 @@ from pulse.config import get_settings
 from pulse.correlation import CorrelationEngine
 from pulse.detector import StressDetector
 from pulse.events import EventStore
+from pulse.routes import init_templates, router
 from pulse.store import PulseStore
 from pulse.worker import start_worker, stop_worker
 
@@ -43,12 +45,30 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    application.mount(
-        "/static",
-        StaticFiles(directory="static"),
-        name="static",
-    )
+    # ── Static files (skip if directory absent — e.g. during tests) ──────────
+    _static_dir = os.path.join(os.getcwd(), "static")
+    if os.path.isdir(_static_dir):
+        application.mount(
+            "/static",
+            StaticFiles(directory=_static_dir),
+            name="static",
+        )
 
+    # ── Jinja2 templates ─────────────────────────────────────────────────────
+    _pkg_dir = os.path.dirname(__file__)
+    _template_dir = os.path.join(_pkg_dir, "templates")
+    init_templates(_template_dir)
+
+    # ── App state ─────────────────────────────────────────────────────────────
+    application.state.store = store
+    application.state.event_store = event_store
+    application.state.detector = detector
+    application.state.correlation_engine = correlation_engine
+
+    # ── Routers ───────────────────────────────────────────────────────────────
+    application.include_router(router)
+
+    # ── Built-in endpoints ───────────────────────────────────────────────────
     @application.get("/health")
     async def health() -> dict[str, str]:
         """Health check endpoint."""
