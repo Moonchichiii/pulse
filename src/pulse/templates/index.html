@@ -3,80 +3,167 @@
 {% block title %}Market Pulse — Real-time Dashboard{% endblock %}
 
 {% block content %}
-<div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
-    <!-- Left: Pulse Table -->
-    <div class="xl:col-span-2">
-        <div class="bg-gray-800 rounded-lg shadow-xl border border-gray-700">
-            <div class="px-6 py-4 border-b border-gray-700">
-                <h2 class="text-xl font-semibold text-gray-100">Market Pulse</h2>
-                <p class="text-sm text-gray-400 mt-1">Tracking {{ symbol_count }} symbols</p>
+<!-- Alpine.js store for control panel state -->
+<div x-data="{
+    topK: localStorage.getItem('pulse_topK') || 'all',
+    baseSymbol: localStorage.getItem('pulse_baseSymbol') || '{{ base_symbol }}',
+    bucketSize: localStorage.getItem('pulse_bucketSize') || '10',
+
+    init() {
+        this.$watch('topK', value => localStorage.setItem('pulse_topK', value));
+        this.$watch('baseSymbol', value => {
+            localStorage.setItem('pulse_baseSymbol', value);
+            htmx.trigger('#corr-card', 'refreshCorr');
+        });
+        this.$watch('bucketSize', value => {
+            localStorage.setItem('pulse_bucketSize', value);
+            htmx.trigger('#corr-card', 'refreshCorr');
+        });
+    },
+
+    shouldShowRow(index, totalRows) {
+        if (this.topK === 'all') return true;
+        const k = parseInt(this.topK);
+        return index < k;
+    }
+}">
+
+    <!-- Control Panel -->
+    <div class="mb-6 rounded-lg border border-gray-700 bg-gray-800 p-4">
+        <div class="flex flex-wrap items-center gap-4">
+            <div class="flex items-center gap-2">
+                <label class="text-sm font-medium text-gray-400">Show Top:</label>
+                <select
+                    x-model="topK"
+                    class="rounded border border-gray-600 bg-gray-700 px-3 py-1.5 text-sm text-gray-200 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                >
+                    <option value="all">All</option>
+                    <option value="5">Top 5</option>
+                    <option value="10">Top 10</option>
+                    <option value="20">Top 20</option>
+                </select>
             </div>
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm">
-                    <thead class="bg-gray-700 text-gray-300 uppercase text-xs">
-                        <tr>
-                            <th class="px-4 py-3 text-left">Symbol</th>
-                            <th class="px-4 py-3 text-left">Asset</th>
-                            <th class="px-4 py-3 text-right">Price</th>
-                            <th class="px-4 py-3 text-right">1m</th>
-                            <th class="px-4 py-3 text-right">5m</th>
-                            <th class="px-4 py-3 text-right">15m</th>
-                            <th class="px-4 py-3 text-right">Vol</th>
-                            <th class="px-4 py-3 text-center">Trend</th>
-                            <th class="px-4 py-3 text-center">Regime</th>
-                        </tr>
-                    </thead>
-                    <tbody id="pulse-tbody"
-                           hx-ext="sse"
-                           sse-connect="/stream/pulse"
-                           sse-swap="pulse"
-                           hx-swap="innerHTML"
-                           class="divide-y divide-gray-700">
-                        <tr>
-                            <td colspan="9" class="px-4 py-8 text-center text-gray-500">
-                                <svg class="animate-spin h-5 w-5 mx-auto mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
-                                Connecting to live feed...
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+
+            <div class="flex items-center gap-2">
+                <label class="text-sm font-medium text-gray-400">Base Symbol:</label>
+                <select
+                    x-model="baseSymbol"
+                    class="rounded border border-gray-600 bg-gray-700 px-3 py-1.5 text-sm text-gray-200 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                >
+                    <option value="SPY">SPY</option>
+                    <option value="AAPL">AAPL</option>
+                    <option value="MSFT">MSFT</option>
+                    <option value="GOOGL">GOOGL</option>
+                    <option value="AMZN">AMZN</option>
+                    <option value="TSLA">TSLA</option>
+                    <option value="NVDA">NVDA</option>
+                    <option value="META">META</option>
+                </select>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <label class="text-sm font-medium text-gray-400">Bucket Size:</label>
+                <select
+                    x-model="bucketSize"
+                    class="rounded border border-gray-600 bg-gray-700 px-3 py-1.5 text-sm text-gray-200 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                >
+                    <option value="10">10s</option>
+                    <option value="20">20s</option>
+                    <option value="30">30s</option>
+                </select>
+            </div>
+
+            <div class="ml-auto text-xs text-gray-500">
+                <span x-text="topK === 'all' ? 'Showing all' : 'Showing top ' + topK"></span>
+                · Base: <span x-text="baseSymbol"></span>
+                · Bucket: <span x-text="bucketSize + 's'"></span>
             </div>
         </div>
     </div>
 
-    <!-- Right Column -->
-    <div class="space-y-6">
-        <!-- Stress Feed -->
-        <div class="bg-gray-800 rounded-lg shadow-xl border border-gray-700">
-            <div class="px-6 py-4 border-b border-gray-700">
-                <h2 class="text-xl font-semibold text-gray-100">Stress Events</h2>
-                <p class="text-sm text-gray-400 mt-1">Recent alerts</p>
-            </div>
-            <div id="stress-feed"
-                 hx-ext="sse"
-                 sse-connect="/stream/stress"
-                 sse-swap="stress"
-                 hx-swap="innerHTML"
-                 class="px-6 py-4 space-y-3 max-h-96 overflow-y-auto">
-                <p class="text-gray-500 text-sm">Connecting...</p>
+    <!-- Main grid -->
+    <div class="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <!-- Left: Pulse Table -->
+        <div class="xl:col-span-2">
+            <div class="rounded-lg border border-gray-700 bg-gray-800 shadow-xl">
+                <div class="border-b border-gray-700 px-6 py-4">
+                    <h2 class="text-xl font-semibold text-gray-100">Market Pulse</h2>
+                    <p class="mt-1 text-sm text-gray-400">Tracking {{ symbol_count }} symbols</p>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-700 text-xs uppercase text-gray-300">
+                            <tr>
+                                <th class="px-4 py-3 text-left">Symbol</th>
+                                <th class="px-4 py-3 text-left">Asset</th>
+                                <th class="px-4 py-3 text-right">Price</th>
+                                <th class="px-4 py-3 text-right">1m</th>
+                                <th class="px-4 py-3 text-right">5m</th>
+                                <th class="px-4 py-3 text-right">15m</th>
+                                <th class="px-4 py-3 text-right">Vol</th>
+                                <th class="px-4 py-3 text-center">Trend</th>
+                                <th class="px-4 py-3 text-center">Regime</th>
+                            </tr>
+                        </thead>
+                        <tbody
+                            id="pulse-tbody"
+                            hx-ext="sse"
+                            sse-connect="/stream/pulse"
+                            sse-swap="pulse"
+                            hx-swap="innerHTML"
+                            class="divide-y divide-gray-700"
+                        >
+                            <tr>
+                                <td colspan="9" class="px-4 py-8 text-center text-gray-500">
+                                    <svg class="mx-auto mb-2 h-5 w-5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    Connecting to live feed...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
-        <!-- Correlation Card -->
-        <div class="bg-gray-800 rounded-lg shadow-xl border border-gray-700">
-            <div class="px-6 py-4 border-b border-gray-700">
-                <h2 class="text-xl font-semibold text-gray-100">Correlation</h2>
-                <p class="text-sm text-gray-400 mt-1">vs {{ base_symbol }}</p>
+        <!-- Right Column -->
+        <div class="space-y-6">
+            <!-- Stress Feed -->
+            <div class="rounded-lg border border-gray-700 bg-gray-800 shadow-xl">
+                <div class="border-b border-gray-700 px-6 py-4">
+                    <h2 class="text-xl font-semibold text-gray-100">Stress Events</h2>
+                    <p class="mt-1 text-sm text-gray-400">Recent alerts</p>
+                </div>
+                <div
+                    id="stress-feed"
+                    hx-ext="sse"
+                    sse-connect="/stream/stress"
+                    sse-swap="stress"
+                    hx-swap="innerHTML"
+                    class="max-h-96 space-y-3 overflow-y-auto px-6 py-4"
+                >
+                    <p class="text-sm text-gray-500">Connecting...</p>
+                </div>
             </div>
-            <div id="corr-card"
-                 hx-get="/fragments/corr"
-                 hx-trigger="load, every 5s"
-                 hx-swap="innerHTML"
-                 class="px-6 py-4">
-                <p class="text-gray-500 text-sm">Loading...</p>
+
+            <!-- Correlation Card -->
+            <div class="rounded-lg border border-gray-700 bg-gray-800 shadow-xl">
+                <div class="border-b border-gray-700 px-6 py-4">
+                    <h2 class="text-xl font-semibold text-gray-100">Correlation</h2>
+                    <p class="mt-1 text-sm text-gray-400">vs <span x-text="baseSymbol"></span></p>
+                </div>
+                <div
+                    id="corr-card"
+                    hx-get="/fragments/corr"
+                    :hx-vals="JSON.stringify({base_symbol: baseSymbol, bucket_size: bucketSize})"
+                    hx-trigger="load, every 5s, refreshCorr from:body"
+                    hx-swap="innerHTML"
+                    class="px-6 py-4"
+                >
+                    <p class="text-sm text-gray-500">Loading...</p>
+                </div>
             </div>
         </div>
     </div>

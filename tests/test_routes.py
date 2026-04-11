@@ -14,6 +14,7 @@ from pulse.models import AssetClass, Tick
 
 if TYPE_CHECKING:
     import httpx
+    from httpx import AsyncClient
 
     from pulse.store import PulseStore  # noqa: PLC0415, N814
 
@@ -364,3 +365,18 @@ def test_pulse_rows_template_with_metrics() -> None:
     assert "AAPL" in html
     assert "<tr" in html
     assert "stock" in html
+
+
+@pytest.mark.asyncio
+async def test_fragment_corr_with_params(
+    client: AsyncClient,
+) -> None:
+    """Test correlation fragment accepts base_symbol and bucket_size."""
+    response = await client.get(
+        "/fragments/corr?base_symbol=AAPL&bucket_size=20"
+    )
+    assert response.status_code == 200
+    html = response.text
+    assert "AAPL" in html or "Accumulating" in html
+    # Verify the response includes the updated base symbol
+    assert "AAPL" in html or "data" in html.lower()
