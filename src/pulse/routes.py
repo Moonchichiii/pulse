@@ -8,7 +8,7 @@ import time
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Query, Request
 from fastapi.templating import Jinja2Templates
 from sse_starlette.sse import EventSourceResponse
 
@@ -138,10 +138,17 @@ async def stream_stress(request: Request) -> EventSourceResponse:
 
 
 @router.get("/fragments/corr")
-async def fragment_corr(request: Request) -> Response:
+async def fragment_corr(
+    request: Request,
+    base_symbol: str = Query(default="SPY"),
+    bucket_size: float = Query(default=10.0, ge=5.0, le=60.0),
+) -> Response:
     """HTMX polling fragment: correlation table partial."""
     correlation_engine: CorrelationEngine = request.app.state.correlation_engine
-    base_symbol: str = correlation_engine.base_symbol
+
+    # Update engine parameters
+    correlation_engine.base_symbol = base_symbol
+    correlation_engine.bucket_size = bucket_size
 
     correlations: dict[str, float] = {}
     try:
@@ -157,6 +164,7 @@ async def fragment_corr(request: Request) -> Response:
         {
             "correlations": correlations,
             "base_symbol": base_symbol,
+            "bucket_size": bucket_size,
             "computed_at": time.time(),
         },
     )
