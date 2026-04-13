@@ -196,7 +196,6 @@ async def test_correlation_engine_integration(
 ) -> None:
     """Test correlation engine with real store data."""
     store: PulseStore = integration_app.state.store
-    engine: CorrelationEngine = integration_app.state.correlation_engine
 
     # Add correlated data
     now = time.time()
@@ -222,11 +221,11 @@ async def test_correlation_engine_integration(
             )
         )
 
-    # Compute correlation (use correct method signature)
-    result = engine.compute(base="AAPL", bucket_size=10)
+    # Compute correlation
+    engine = CorrelationEngine(store, base_symbol="AAPL", bucket_size=10)
+    result = engine.compute()
 
     assert len(result) > 0
-    assert any(r.symbol == "MSFT" for r in result)
+    assert "MSFT" in result
     # Should be highly correlated (both rising together)
-    msft_corr = next(r for r in result if r.symbol == "MSFT")
-    assert msft_corr.correlation > 0.9
+    assert result["MSFT"] > 0.9
