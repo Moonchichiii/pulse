@@ -15,6 +15,9 @@ RUN uv sync --frozen --no-dev
 # Copy source code
 COPY src/ ./src/
 
+# Copy static files
+COPY static/ ./static/
+
 # Expose port
 EXPOSE 8000
 
